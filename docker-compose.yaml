@@ -1,0 +1,15 @@
+version: '3.9'
+name: zjbs-file-server
+
+services:
+  file-server:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      ZJBS_FILE_FILE_DIR: /data/file
+      ZJBS_FILE_LOG_DIR: /data/log
+    volumes:
+      - ./.data:/data
