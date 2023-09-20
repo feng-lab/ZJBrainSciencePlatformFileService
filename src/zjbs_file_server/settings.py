@@ -16,11 +16,14 @@ class Settings(BaseSettings):
     # 文件目录
     FILE_DIR: Path = HOME_DIR / "file"
 
-    # 调试模式，默认为False
+    # 调试模式
     DEBUG_MODE: bool = False
 
     # 传递RequestID的header键
     REQUEST_ID_HEADER_KEY: str = "X-Request-ID"
+
+    # 文件读写缓冲区大小
+    BUFFER_SIZE: int = 1024 * 64
 
 
 settings = Settings()

@@ -1,27 +1,18 @@
-import sys
+from typing import Never
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
+from starlette.responses import RedirectResponse
 
 from zjbs_file_server import api
+from zjbs_file_server.error import raise_internal_server_error, raise_not_found
+from zjbs_file_server.log import init_logger
 from zjbs_file_server.settings import settings
 from zjbs_file_server.type import MiddlewareCallNext
 
 # 配置日志
-logger.remove()
-log_config = {
-    "level": "INFO",
-    "rotation": "1 day",
-    "retention": "14 days",
-    "encoding": "UTF-8",
-    "enqueue": True,
-    "format": "{time:YYYY-MM-DD HH:mm:ss.SSS}|{level}|{name}:{function}:{line}|{extra[request_id]}|{message}",
-}
-logger.add(settings.LOG_DIR / "app.log", **log_config)
-logger.add(settings.LOG_DIR / "error.log", **(log_config | {"level": "ERROR", "backtrace": True}))
-if settings.DEBUG_MODE:
-    logger.add(sys.stderr, level="TRACE", backtrace=True, diagnose=True, enqueue=True, format=log_config["format"])
+init_logger()
 
 # 配置服务器
 app = FastAPI(title="Zhejiang Brain Science Platform File Service", description="之江实验室 Brain Science 平台文件服务")
@@ -40,6 +31,16 @@ async def handle_request_id(request: Request, call_next: MiddlewareCallNext) -> 
 app.include_router(api.router)
 
 
+@app.exception_handler(Exception)
+async def handle_exception(request: Request, e: Exception) -> Never:
+    if isinstance(e, HTTPException):
+        raise
+    logger.exception(f"unknown error, {request.url=}")
+    raise_internal_server_error(str(e))
+
+
 @app.get("/")
 def index():
-    return settings
+    if settings.DEBUG_MODE:
+        return RedirectResponse(url="/docs")
+    raise_not_found("page /")
