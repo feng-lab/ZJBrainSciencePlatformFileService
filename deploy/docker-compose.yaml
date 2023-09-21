@@ -1,0 +1,16 @@
+version: '3.9'
+name: zjbs-file-server
+
+services:
+  file-server:
+    image: cnife/zjbs-file-server:${IMAGE_VERSION:-latest}
+    ports:
+      - "${PORT:-3000}:80"
+    environment:
+      ZJBS_FILE_FILE_DIR: /data/file
+      ZJBS_FILE_LOG_DIR: /data/log
+    volumes:
+      - ${FILE_DIR:-/zjbs-data/file_server/file}:/data/file
+      - ${LOG_DIR:-/zjbs-data/file_server/log}:/data/log
+    healthcheck:
+      test: CMD curl --fail http://localhost:${PORT:-3000}/docs
