@@ -8,3 +8,6 @@ wheels/
 
 # venv
 .venv
+
+# 开发模式数据
+.data/
