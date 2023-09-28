@@ -19,21 +19,23 @@ async def close_client() -> None:
 
 
 async def upload(
-    file: BinaryIO, directory: str, mkdir: bool | None = None, allow_overwrite: bool | None = None
+    directory: str, file: BinaryIO, filename: str, mkdir: bool | None = None, allow_overwrite: bool | None = None
 ) -> None:
     params = {"directory": directory}
     if mkdir is not None:
         params["mkdir"] = mkdir
     if allow_overwrite is not None:
         params["allow_overwrite"] = allow_overwrite
+    files = {"file": (filename, file, "application/octet-stream")}
 
-    response = await client.post("/Upload", files={"file": file}, params=params)
+    response = await client.post("/Upload", files=files, params=params)
     response.raise_for_status()
 
 
 async def upload_zip(
-    file: BinaryIO,
     directory: str,
+    file: BinaryIO,
+    filename: str,
     mkdir: bool | None = None,
     allow_overwrite: bool | None = None,
     zip_metadata_encoding: str | None = None,
@@ -45,8 +47,9 @@ async def upload_zip(
         params["allow_overwrite"] = allow_overwrite
     if zip_metadata_encoding is not None:
         params["zip_metadata_encoding"] = zip_metadata_encoding
+    files = {"file": (filename, file, "application/octet-stream")}
 
-    response = await client.post("/UploadZip", files={"file": file}, params=params)
+    response = await client.post("/UploadZip", files=files, params=params)
     response.raise_for_status()
 
 
