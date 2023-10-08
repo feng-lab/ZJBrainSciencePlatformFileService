@@ -1,4 +1,6 @@
+import os
 import shutil
+import tarfile
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -7,6 +9,7 @@ from zipfile import ZipFile
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
+from starlette.background import BackgroundTask
 
 from zjbs_file_server.error import raise_bad_request, raise_not_found
 from zjbs_file_server.model import FileSystemInfo, FileType, UrlPath
@@ -64,15 +67,40 @@ def upload_zip(
     logger.info(f"upload_zip success: {destination_dir}")
 
 
-@router.post("/Download", description="下载文件")
+@router.post("/DownloadFile", description="下载文件")
 def download_file(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
     file_path = get_os_path(path)
     if not file_path.exists():
         logger.error(f"download_file fail: file not exists: {file_path}")
         raise_not_found(path)
+    if not file_path.is_file():
+        logger.error(f"download_file fail: not a file: {file_path}")
+        raise_bad_request(f"not a file: {path}")
 
     logger.info(f"download_file success: {file_path}")
     return FileResponse(file_path, filename=file_path.name)
+
+
+@router.post("/DownloadDirectory", description="下载文件夹")
+def download_directory(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
+    dir_path = get_os_path(path)
+    if not dir_path.exists():
+        logger.error(f"download_directory fail: file not exists: {dir_path}")
+        raise_not_found(path)
+    if not dir_path.is_dir():
+        logger.error(f"download_file fail: not a file: {dir_path}")
+        raise_bad_request(f"not a file: {path}")
+
+    compressed = compress_directory(dir_path)
+    logger.info(f"download_directory success: {dir_path}")
+    return FileResponse(compressed, filename=compressed.name, background=BackgroundTask(os.unlink, compressed))
+
+
+def compress_directory(dir_path: Path) -> Path:
+    compressed = dir_path.with_suffix(".tar.xz")
+    with tarfile.open(compressed, "w:xz") as tar_file:
+        tar_file.add(dir_path, arcname=dir_path.name)
+    return compressed
 
 
 @router.post("/Delete", description="删除文件")

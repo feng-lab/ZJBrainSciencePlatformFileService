@@ -1,3 +1,5 @@
+import tarfile
+from pathlib import Path
 from typing import BinaryIO
 
 from httpx import AsyncClient
@@ -15,7 +17,9 @@ async def init_client(base_url: str, **kwargs) -> None:
 
 async def close_client() -> None:
     global client
-    await client.__aexit__()
+    if client is not None:
+        await client.__aexit__()
+        client = None
 
 
 async def upload(
@@ -53,11 +57,36 @@ async def upload_zip(
     response.raise_for_status()
 
 
-async def download(path: str, target: BinaryIO) -> None:
-    response = await client.post("/Download", params={"path": path})
+async def download_file(path: str, target: BinaryIO | str | Path) -> None:
+    response = await client.post("/DownloadFile", params={"path": path})
     response.raise_for_status()
 
-    target.write(response.content)
+    target_writer = target
+    try:
+        if isinstance(target, str | Path):
+            target_writer = open(target, "wb")
+        for chunk in response.iter_bytes(1024 * 1024):
+            target_writer.write(chunk)
+    finally:
+        if isinstance(target, str | Path):
+            target_writer.close()
+
+
+async def download_directory(path: str, target_parent_directory: str | Path) -> None:
+    response = await client.post("/DownloadDirectory", params={"path": path})
+    response.raise_for_status()
+
+    target_parent_directory = Path(target_parent_directory)
+    target_parent_directory.mkdir(parents=True, exist_ok=True)
+    tar_file_path = target_parent_directory / f"{path.lstrip('/').replace('/', '_')}.tar.xz"
+    try:
+        with open(tar_file_path, "wb") as tar_file:
+            for chunk in response.iter_bytes(1024 * 1024):
+                tar_file.write(chunk)
+        with tarfile.open(tar_file_path, "r:xz") as tar_file:
+            tar_file.extractall(target_parent_directory)
+    finally:
+        tar_file_path.unlink(missing_ok=True)
 
 
 async def delete(path: str, recursive: bool | None = None) -> bool:
