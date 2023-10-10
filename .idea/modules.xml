@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/ZJBrainSciencePlatformFileService.iml" filepath="$PROJECT_DIR$/.idea/ZJBrainSciencePlatformFileService.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ZJBrainSciencePlatformFileServer.iml" filepath="$PROJECT_DIR$/.idea/ZJBrainSciencePlatformFileServer.iml" />
     </modules>
   </component>
 </project>

@@ -6,6 +6,6 @@ from .async_client import (
     init_client,
     list_directory,
     upload,
-    upload_zip,
+    upload_directory,
 )
-from .model import FileSystemInfo, FileType
+from .model import CompressMethod, FileSystemInfo, FileType

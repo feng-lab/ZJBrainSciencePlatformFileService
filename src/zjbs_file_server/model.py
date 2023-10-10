@@ -32,3 +32,10 @@ class FileSystemInfo(BaseModel):
             case FileType.directory:
                 assert self.size is None, "directory size must be None"
         return self
+
+
+class CompressMethod(StrEnum):
+    not_compressed = "not_compressed"
+    zip = "zip"
+    tgz = "tgz"
+    txz = "txz"

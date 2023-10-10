@@ -14,3 +14,10 @@ class FileSystemInfo:
     name: str
     last_modified: datetime
     size: int | None
+
+
+class CompressMethod(StrEnum):
+    not_compressed = "not_compressed"
+    zip = "zip"
+    tgz = "tgz"
+    txz = "txz"

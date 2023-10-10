@@ -12,7 +12,7 @@ from loguru import logger
 from starlette.background import BackgroundTask
 
 from zjbs_file_server.error import raise_bad_request, raise_not_found
-from zjbs_file_server.model import FileSystemInfo, FileType, UrlPath
+from zjbs_file_server.model import CompressMethod, FileSystemInfo, FileType, UrlPath
 from zjbs_file_server.settings import settings
 
 router = APIRouter(tags=["file"])
@@ -48,23 +48,34 @@ def upload_file(
         raise
 
 
-@router.post("/UploadZip", description="上传并解压缩zip文件")
-def upload_zip(
-    directory: Annotated[UrlPath, Query(description="目标文件夹")],
-    file: Annotated[UploadFile, File(description="上传的文件")],
+@router.post("/UploadDirectory", description="以压缩包上传文件夹")
+def upload_directory(
+    parent_dir: Annotated[UrlPath, Query(description="目标文件夹")],
+    compressed_dir: Annotated[UploadFile, File(description="上传的文件")],
+    compress_method: Annotated[CompressMethod, Query(description="压缩方法")],
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
-    allow_overwrite: Annotated[bool, Query(description="是否允许覆盖已有文件")] = False,
     zip_metadata_encoding: Annotated[str, Query(description="zip文件元数据编码")] = "GB18030",
 ) -> None:
-    upload_file(directory, file, mkdir, allow_overwrite)
+    destination_parent_dir = get_os_path(parent_dir)
+    if mkdir:
+        destination_parent_dir.mkdir(parents=True, exist_ok=True)
+    elif not destination_parent_dir.is_dir():
+        logger.error(f"upload_directory fail: directory not exists or not directory: {destination_parent_dir}")
+        raise_bad_request(f"directory {parent_dir} not exists or not directory")
 
-    destination_dir = get_os_path(directory)
-    zip_path = destination_dir / file.filename
-    with ZipFile(zip_path, mode="r", metadata_encoding=zip_metadata_encoding) as zip_file:
-        zip_file.extractall(destination_dir)
-
-    zip_path.unlink()
-    logger.info(f"upload_zip success: {destination_dir}")
+    match compress_method:
+        case CompressMethod.zip:
+            with ZipFile(compressed_dir.file, mode="r", metadata_encoding=zip_metadata_encoding) as zip_file:
+                zip_file.extractall(destination_parent_dir)
+        case CompressMethod.tgz | CompressMethod.txz:
+            with tarfile.open(
+                fileobj=compressed_dir.file, mode="r:gz" if compress_method == CompressMethod.tgz else "r:xz"
+            ) as tar_file:
+                tar_file.extractall(destination_parent_dir)
+        case _:
+            logger.error(f"upload_directory fail: unsupported compress method: {compress_method}")
+            raise_bad_request(f"unsupported compress method: {compress_method}")
+    logger.info(f"upload_zip success: {destination_parent_dir}")
 
 
 @router.post("/DownloadFile", description="下载文件")

@@ -1,10 +1,11 @@
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import BinaryIO
 
 from httpx import AsyncClient
 
-from .model import FileSystemInfo
+from .model import CompressMethod, FileSystemInfo
 
 client: AsyncClient | None = None
 
@@ -36,25 +37,33 @@ async def upload(
     response.raise_for_status()
 
 
-async def upload_zip(
-    directory: str,
-    file: BinaryIO,
-    filename: str,
+async def upload_directory(
+    parent_dir: str,
+    directory: Path | str,
+    compress_method: CompressMethod,
     mkdir: bool | None = None,
-    allow_overwrite: bool | None = None,
     zip_metadata_encoding: str | None = None,
 ) -> None:
-    params = {"directory": directory}
-    if mkdir is not None:
-        params["mkdir"] = mkdir
-    if allow_overwrite is not None:
-        params["allow_overwrite"] = allow_overwrite
-    if zip_metadata_encoding is not None:
-        params["zip_metadata_encoding"] = zip_metadata_encoding
-    files = {"file": (filename, file, "application/octet-stream")}
+    directory = Path(directory)
+    with tempfile.SpooledTemporaryFile() as tmp_compress_file:
+        match compress_method:
+            case CompressMethod.tgz | CompressMethod.txz:
+                with tarfile.open(
+                    fileobj=tmp_compress_file, mode="w:gz" if compress_method == CompressMethod.tgz else "w:xz"
+                ) as tar_file:
+                    tar_file.add(directory, arcname=directory.name)
+            case _:
+                raise ValueError(f"unsupported compress_method: {compress_method}")
 
-    response = await client.post("/UploadZip", files=files, params=params)
-    response.raise_for_status()
+        params = {"parent_dir": parent_dir, "compress_method": compress_method}
+        if mkdir is not None:
+            params["mkdir"] = mkdir
+        if zip_metadata_encoding is not None:
+            params["zip_metadata_encoding"] = zip_metadata_encoding
+        files = {"compressed_dir": (directory.name, tmp_compress_file, "application/octet-stream")}
+
+        response = await client.post("/UploadDirectory", files=files, params=params)
+        response.raise_for_status()
 
 
 async def download_file(path: str, target: BinaryIO | str | Path) -> None:
