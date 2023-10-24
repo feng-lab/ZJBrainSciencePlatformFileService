@@ -1,7 +1,7 @@
 import tarfile
 import tempfile
+from io import IOBase
 from pathlib import Path
-from typing import BinaryIO
 
 from httpx import AsyncClient
 
@@ -24,7 +24,7 @@ async def close_client() -> None:
 
 
 async def upload(
-    directory: str, file: BinaryIO, filename: str, mkdir: bool | None = None, allow_overwrite: bool | None = None
+    directory: str, file: IOBase, filename: str, mkdir: bool | None = None, allow_overwrite: bool | None = None
 ) -> None:
     params = {"directory": directory}
     if mkdir is not None:
@@ -66,7 +66,7 @@ async def upload_directory(
         response.raise_for_status()
 
 
-async def download_file(path: str, target: BinaryIO | str | Path) -> None:
+async def download_file(path: str, target: IOBase | str | Path) -> None:
     response = await client.post("/DownloadFile", params={"path": path})
     response.raise_for_status()
 
