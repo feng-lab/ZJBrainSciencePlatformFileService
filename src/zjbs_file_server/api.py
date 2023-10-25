@@ -2,18 +2,50 @@ import os
 import shutil
 import tarfile
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 from zipfile import ZipFile
 
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
+from pydantic import AfterValidator, BaseModel, model_validator
 from starlette.background import BackgroundTask
 
-from zjbs_file_server.error import raise_bad_request, raise_not_found
-from zjbs_file_server.model import CompressMethod, FileSystemInfo, FileType, UrlPath
 from zjbs_file_server.settings import settings
+from zjbs_file_server.util import get_os_path, is_valid_filename, raise_bad_request, raise_not_found, validate_url_path
+
+UrlPath = Annotated[str, AfterValidator(validate_url_path)]
+
+
+class CompressMethod(StrEnum):
+    not_compressed = "not_compressed"
+    zip = "zip"
+    tgz = "tgz"
+    txz = "txz"
+
+
+class FileType(StrEnum):
+    file = "file"
+    directory = "directory"
+
+
+class FileSystemInfo(BaseModel):
+    type: FileType
+    name: str
+    last_modified: datetime
+    size: int | None = None
+
+    @model_validator(mode="after")
+    def validate_type_and_size(self) -> Self:
+        match self.type:
+            case FileType.file:
+                assert self.size is not None, "file size must not be None"
+            case FileType.directory:
+                assert self.size is None, "directory size must be None"
+        return self
+
 
 router = APIRouter(tags=["file"])
 
@@ -25,6 +57,10 @@ def upload_file(
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
     allow_overwrite: Annotated[bool, Query(description="是否允许覆盖已有文件")] = False,
 ) -> None:
+    if not is_valid_filename(file.filename):
+        logger.error(f"upload_file fail: invalid filename: {file.filename}")
+        raise_bad_request(f"invalid filename: {file.filename}")
+
     destination_folder = get_os_path(directory)
     if not destination_folder.exists():
         if mkdir:
@@ -164,5 +200,20 @@ def list_directory(directory: Annotated[UrlPath, Query(description="文件路径
     return result
 
 
-def get_os_path(url_path: UrlPath) -> Path:
-    return settings.FILE_DIR / url_path[1:]
+@router.post("/Rename", description="重命名文件")
+def rename(
+    path: Annotated[UrlPath, Query(description="文件路径")], new_name: Annotated[str, Query(description="新文件名")]
+) -> None:
+    file_path = get_os_path(path)
+    if not file_path.exists():
+        logger.error(f"rename fail: file not exists: {path}")
+        raise_not_found(path)
+    if not is_valid_filename(new_name):
+        logger.error(f"rename fail: invalid filename: {new_name}")
+        raise_bad_request(f"invalid filename: {new_name}")
+    new_path = file_path.parent / new_name
+    if new_path.exists():
+        logger.error(f"rename fail: target exists: {new_path}")
+        raise_bad_request(f"target exists: {new_name}")
+
+    os.rename(file_path, new_path)
