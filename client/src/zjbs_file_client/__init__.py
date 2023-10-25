@@ -5,6 +5,7 @@ from .async_client import (
     download_file,
     init_client,
     list_directory,
+    rename,
     upload,
     upload_directory,
 )

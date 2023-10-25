@@ -113,3 +113,8 @@ async def list_directory(directory: str) -> list[FileSystemInfo]:
     response.raise_for_status()
 
     return [FileSystemInfo(**info) for info in response.json()]
+
+
+async def rename(path: str, new_name: str) -> None:
+    response = await client.post("/Rename", params={"path": path, "new_name": new_name})
+    response.raise_for_status()
