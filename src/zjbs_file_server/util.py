@@ -5,7 +5,6 @@ from typing import Never
 from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
-from zjbs_file_server.api import UrlPath
 from zjbs_file_server.settings import settings
 
 
@@ -21,7 +20,7 @@ def raise_internal_server_error(message: str) -> Never:
     raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail=message)
 
 
-def get_os_path(url_path: UrlPath) -> Path:
+def get_os_path(url_path: str) -> Path:
     return settings.FILE_DIR / url_path[1:]
 
 

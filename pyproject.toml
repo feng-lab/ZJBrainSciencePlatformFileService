@@ -31,7 +31,10 @@ dev-dependencies = [
     "rich>=13.5.3",
     "black>=23.9.1",
     "isort>=5.12.0",
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
 ]
+workspace = { members = ["client"] }
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -45,3 +48,6 @@ skip-magic-trailing-comma = true
 profile = "black"
 line_length = 120
 src_paths = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -7,7 +7,7 @@ from loguru import logger
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
-from zjbs_file_server import api
+from zjbs_file_server.api import router as api_router
 from zjbs_file_server.settings import settings
 from zjbs_file_server.util import raise_internal_server_error, raise_not_found
 
@@ -41,7 +41,7 @@ async def handle_request_id(request: Request, call_next: Callable[[Request], Awa
         return response
 
 
-app.include_router(api.router)
+app.include_router(api_router)
 
 
 @app.exception_handler(Exception)
