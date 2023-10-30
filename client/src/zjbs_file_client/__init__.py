@@ -10,3 +10,18 @@ from .async_client import (
     upload_directory,
 )
 from .model import CompressMethod, FileSystemInfo, FileType
+
+__all__ = [
+    "init_client",
+    "close_client",
+    "upload",
+    "upload_directory",
+    "download_file",
+    "download_directory",
+    "delete",
+    "list_directory",
+    "rename",
+    "FileSystemInfo",
+    "FileType",
+    "CompressMethod",
+]

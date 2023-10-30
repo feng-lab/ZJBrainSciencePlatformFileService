@@ -33,11 +33,41 @@ dev-dependencies = [
     "isort>=5.12.0",
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
+    "pre-commit>=3.5.0",
 ]
 workspace = { members = ["client"] }
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.ruff]
+src = ["src", "test", "client/src"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".pytest_cache",
+    ".data",
+    "dist",
+]
+line-length = 120
+indent-width = 4
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+line-ending = "lf"
+
+[tool.ruff.isort]
+known-local-folder = ["zjbs_file_client"]
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.black]
 line-length = 120

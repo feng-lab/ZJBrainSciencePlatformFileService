@@ -1,0 +1,36 @@
+name: 测试工作流
+
+on:
+  - push
+  - pull_request
+
+jobs:
+
+  checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 切换到当前分支
+        uses: actions/checkout@v3
+
+      - name: 配置Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 安装pip依赖
+        run: pip install -r requirements.lock && pip install -r requirements-dev.lock
+
+      - name: 运行ruff
+        run: ruff check . && ruff format --check .
+
+      - name: 运行pytest
+        run: pytest --junitxml=pytest_report.xml
+
+      - name: 生成pytest结果
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: ./pytest_report.xml
+          show: all
+

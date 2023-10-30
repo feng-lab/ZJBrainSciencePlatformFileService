@@ -152,7 +152,8 @@ def compress_directory(dir_path: Path) -> Path:
 
 @router.post("/Delete", description="删除文件")
 def delete_file(
-    path: Annotated[UrlPath, Query(description="文件路径")], recursive: Annotated[bool, Query(description="是否递归删除")] = False
+    path: Annotated[UrlPath, Query(description="文件路径")],
+    recursive: Annotated[bool, Query(description="是否递归删除")] = False,
 ) -> bool:
     file_path = get_os_path(path)
     if not file_path.exists():
