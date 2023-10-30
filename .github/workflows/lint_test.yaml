@@ -1,8 +1,6 @@
 name: 测试工作流
 
-on:
-  - push
-  - pull_request
+on: push
 
 jobs:
 
@@ -12,6 +10,9 @@ jobs:
       - name: 切换到当前分支
         uses: actions/checkout@v3
 
+      - name: 运行ruff
+        uses: chartboost/ruff-action@v1
+
       - name: 配置Python
         uses: actions/setup-python@v4
         with:
@@ -19,10 +20,7 @@ jobs:
           cache: pip
 
       - name: 安装pip依赖
-        run: pip install -r requirements.lock && pip install -r requirements-dev.lock
-
-      - name: 运行ruff
-        run: ruff check . && ruff format --check .
+        run: pip install -r requirements-dev.lock
 
       - name: 运行pytest
         run: pytest --junitxml=pytest_report.xml
