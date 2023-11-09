@@ -11,3 +11,7 @@ wheels/
 
 # 开发模式数据
 .data/
+
+# tools cache
+.pytest_cache/
+.ruff_cache/
