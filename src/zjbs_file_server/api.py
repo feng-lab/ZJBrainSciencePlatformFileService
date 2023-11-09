@@ -2,57 +2,25 @@ import os
 import shutil
 import tarfile
 from datetime import datetime
-from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 from zipfile import ZipFile
 
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
-from pydantic import AfterValidator, BaseModel, model_validator
 from starlette.background import BackgroundTask
 
 from zjbs_file_server.settings import settings
-from zjbs_file_server.util import get_os_path, is_valid_filename, raise_bad_request, raise_not_found, validate_url_path
-
-UrlPath = Annotated[str, AfterValidator(validate_url_path)]
-
-
-class CompressMethod(StrEnum):
-    not_compressed = "not_compressed"
-    zip = "zip"
-    tgz = "tgz"
-    txz = "txz"
-
-
-class FileType(StrEnum):
-    file = "file"
-    directory = "directory"
-
-
-class FileSystemInfo(BaseModel):
-    type: FileType
-    name: str
-    last_modified: datetime
-    size: int | None = None
-
-    @model_validator(mode="after")
-    def validate_type_and_size(self) -> Self:
-        match self.type:
-            case FileType.file:
-                assert self.size is not None, "file size must not be None"
-            case FileType.directory:
-                assert self.size is None, "directory size must be None"
-        return self
-
+from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, FileSystemInfo, FileType, is_valid_filename
+from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
 router = APIRouter(tags=["file"])
 
 
 @router.post("/Upload", description="上传文件")
 def upload_file(
-    directory: Annotated[UrlPath, Query(description="目标文件夹")],
+    directory: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     file: Annotated[UploadFile, File(description="上传的文件")],
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
     allow_overwrite: Annotated[bool, Query(description="是否允许覆盖已有文件")] = False,
@@ -86,7 +54,7 @@ def upload_file(
 
 @router.post("/UploadDirectory", description="以压缩包上传文件夹")
 def upload_directory(
-    parent_dir: Annotated[UrlPath, Query(description="目标文件夹")],
+    parent_dir: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     compressed_dir: Annotated[UploadFile, File(description="上传的文件")],
     compress_method: Annotated[CompressMethod, Query(description="压缩方法")],
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
@@ -115,7 +83,7 @@ def upload_directory(
 
 
 @router.post("/DownloadFile", description="下载文件")
-def download_file(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
+def download_file(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     file_path = get_os_path(path)
     if not file_path.exists():
         logger.error(f"download_file fail: file not exists: {file_path}")
@@ -129,7 +97,7 @@ def download_file(path: Annotated[UrlPath, Query(description="文件路径")]) -
 
 
 @router.post("/DownloadDirectory", description="下载文件夹")
-def download_directory(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
+def download_directory(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     dir_path = get_os_path(path)
     if not dir_path.exists():
         logger.error(f"download_directory fail: file not exists: {dir_path}")
@@ -152,7 +120,7 @@ def compress_directory(dir_path: Path) -> Path:
 
 @router.post("/Delete", description="删除文件")
 def delete_file(
-    path: Annotated[UrlPath, Query(description="文件路径")],
+    path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
     recursive: Annotated[bool, Query(description="是否递归删除")] = False,
 ) -> bool:
     file_path = get_os_path(path)
@@ -179,7 +147,7 @@ def delete_file(
 
 
 @router.post("/List", description="获取文件列表")
-def list_directory(directory: Annotated[UrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
+def list_directory(directory: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
     file_path = get_os_path(directory)
     if not file_path.exists():
         logger.error(f"list_directory fail: file not exists: {file_path}")
@@ -203,7 +171,8 @@ def list_directory(directory: Annotated[UrlPath, Query(description="文件路径
 
 @router.post("/Rename", description="重命名文件")
 def rename(
-    path: Annotated[UrlPath, Query(description="文件路径")], new_name: Annotated[str, Query(description="新文件名")]
+    path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
+    new_name: Annotated[str, Query(description="新文件名")],
 ) -> None:
     file_path = get_os_path(path)
     if not file_path.exists():
