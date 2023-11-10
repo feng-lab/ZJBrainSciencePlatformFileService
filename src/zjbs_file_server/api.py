@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from loguru import logger
 from starlette.background import BackgroundTask
 
-from zjbs_file_server.settings import settings
+from zjbs_file_server import service
 from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, FileSystemInfo, FileType, is_valid_filename
 from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
@@ -25,31 +25,7 @@ def upload_file(
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
     allow_overwrite: Annotated[bool, Query(description="是否允许覆盖已有文件")] = False,
 ) -> None:
-    if not is_valid_filename(file.filename):
-        logger.error(f"upload_file fail: invalid filename: {file.filename}")
-        raise_bad_request(f"invalid filename: {file.filename}")
-
-    destination_folder = get_os_path(directory)
-    if not destination_folder.exists():
-        if mkdir:
-            destination_folder.mkdir(parents=True)
-        else:
-            logger.error(f"upload_file fail: directory not exists: {destination_folder}")
-            raise_bad_request(f"directory {directory} not exists")
-
-    destination_path = destination_folder / file.filename
-    if destination_path.exists() and not allow_overwrite:
-        logger.error(f"upload_file fail: file already exists: {destination_path}")
-        raise_bad_request(f"file {directory}/{file.filename} already exists")
-
-    try:
-        with open(destination_path, "wb") as destination_file:
-            while chunk := file.file.read(settings.BUFFER_SIZE):
-                destination_file.write(chunk)
-        logger.info(f"upload_file success: {destination_path}")
-    except IOError:
-        logger.exception(f"upload_file fail: io error: {destination_path}")
-        raise
+    return service.upload_file(directory, file.filename, file.file, mkdir, allow_overwrite)
 
 
 @router.post("/UploadDirectory", description="以压缩包上传文件夹")
@@ -84,16 +60,7 @@ def upload_directory(
 
 @router.post("/DownloadFile", description="下载文件")
 def download_file(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
-    file_path = get_os_path(path)
-    if not file_path.exists():
-        logger.error(f"download_file fail: file not exists: {file_path}")
-        raise_not_found(path)
-    if not file_path.is_file():
-        logger.error(f"download_file fail: not a file: {file_path}")
-        raise_bad_request(f"not a file: {path}")
-
-    logger.info(f"download_file success: {file_path}")
-    return FileResponse(file_path, filename=file_path.name)
+    return service.download_file(path)
 
 
 @router.post("/DownloadDirectory", description="下载文件夹")

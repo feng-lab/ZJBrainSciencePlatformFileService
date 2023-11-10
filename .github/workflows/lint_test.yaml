@@ -4,7 +4,7 @@ on: push
 
 jobs:
 
-  checkout:
+  ruff-pytest:
     runs-on: ubuntu-latest
     steps:
       - name: 切换到当前分支
