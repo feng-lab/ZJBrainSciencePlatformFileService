@@ -8,7 +8,8 @@ from pydantic import AfterValidator, BaseModel, model_validator
 
 def validate_absolute_url_path(path: str) -> str:
     assert path.startswith("/"), "url path must starts with '/'"
-    return validate_relative_url_path(path[1:])
+    validate_relative_url_path(path[1:])
+    return path
 
 
 def validate_relative_url_path(path: str) -> str:
