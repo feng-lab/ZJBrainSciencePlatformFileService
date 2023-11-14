@@ -1,10 +1,15 @@
+import os
+import tarfile
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import BinaryIO
+from zipfile import ZipFile
 
 from fastapi.responses import FileResponse
 from loguru import logger
 
 from zjbs_file_server.settings import settings
-from zjbs_file_server.types import AbsoluteUrlPath, RelativeUrlPath, is_valid_filename
+from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, RelativeUrlPath, is_valid_filename
 from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
 
@@ -19,6 +24,35 @@ def download_file(path: RelativeUrlPath | AbsoluteUrlPath) -> FileResponse:
 
     logger.info(f"download_file success: {file_path}")
     return FileResponse(file_path, filename=file_path.name)
+
+
+def compress(path: Path, compress_method: CompressMethod, follow_symlinks: bool) -> NamedTemporaryFile:
+    if follow_symlinks:
+        path = path.resolve(strict=True)
+
+    compressed_file = NamedTemporaryFile()
+    match compress_method:
+        case CompressMethod.zip:
+            with ZipFile(compressed_file, mode="w", compresslevel=9) as zip_file:
+                if path.is_file():
+                    zip_file.write(path, path.name)
+                elif path.is_dir():
+                    for root, _, files in os.walk(path, followlinks=follow_symlinks):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            file_relative_path = os.path.relpath(file_path, path)
+                            zip_file.write(file_path, file_relative_path)
+                else:
+                    logger.error(f"compress fail: not a file or directory: {path}")
+                    raise_bad_request("not a file or directory")
+        case CompressMethod.tgz | CompressMethod.txz:
+            mode = "w:gz" if compress_method == CompressMethod.tgz else "w:xz"
+            with tarfile.open(fileobj=compressed_file, mode=mode, dereference=follow_symlinks) as tar_file:
+                tar_file.add(path, path.name)
+        case _:
+            logger.error(f"compress fail: unsupported compress method: {compress_method}")
+            raise_bad_request(f"unsupported compress method: {compress_method}")
+    return compressed_file
 
 
 def upload_file(
