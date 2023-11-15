@@ -1,3 +1,4 @@
+import uuid
 from pathlib import Path
 from typing import Never
 
@@ -21,3 +22,7 @@ def raise_internal_server_error(message: str) -> Never:
 
 def get_os_path(url_path: str, base_path: Path = settings.FILE_DIR) -> Path:
     return base_path / url_path.lstrip("/")
+
+
+def new_temp_file() -> Path:
+    return settings.TEMP_DIR / str(uuid.uuid4())

@@ -1,11 +1,11 @@
 import sys
-from typing import Awaitable, Callable, Never
+from typing import Never
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import RedirectResponse
 
 from zjbs_file_server.api import router as api_router
 from zjbs_file_server.restful_api import router as restful_api_router
@@ -13,7 +13,7 @@ from zjbs_file_server.settings import settings
 from zjbs_file_server.util import raise_internal_server_error, raise_not_found
 
 # 配置日志
-LOG_FORMAT: str = "{time:YYYY-MM-DD HH:mm:ss.SSS}|{level}|{name}:{function}:{line}|{extra[request_id]}|{message}"
+LOG_FORMAT: str = "{time:YYYY-MM-DD HH:mm:ss.SSS}|{level}|{name}:{function}:{line}|{message}"
 logger.remove()
 log_config = {
     "level": "INFO",
@@ -33,15 +33,6 @@ app = FastAPI(title="Zhejiang Brain Science Platform File Service", description=
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
-@app.middleware("http")
-async def handle_request_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    request_id = request.headers.get(settings.REQUEST_ID_HEADER_KEY, "")
-    with logger.contextualize(request_id=request_id):
-        response = await call_next(request)
-        response.headers[settings.REQUEST_ID_HEADER_KEY] = request_id
-        return response
-
-
 app.include_router(api_router)
 app.include_router(restful_api_router)
 
@@ -52,6 +43,12 @@ async def handle_exception(request: Request, e: Exception) -> Never:
         raise
     logger.exception(f"unknown error, {request.url=}")
     raise_internal_server_error(str(e))
+
+
+@app.on_event("startup")
+async def mkdirs() -> None:
+    for dir_path in [settings.FILE_DIR, settings.LOG_DIR, settings.TEMP_DIR]:
+        dir_path.mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/")

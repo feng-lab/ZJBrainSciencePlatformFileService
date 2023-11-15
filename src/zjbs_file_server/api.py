@@ -1,7 +1,6 @@
 import os
 import shutil
 import tarfile
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from zipfile import ZipFile
@@ -12,7 +11,7 @@ from loguru import logger
 from starlette.background import BackgroundTask
 
 from zjbs_file_server import service
-from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, FileSystemInfo, FileType, is_valid_filename
+from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, FileSystemInfo, is_valid_filename
 from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
 router = APIRouter(tags=["file"])
@@ -115,25 +114,7 @@ def delete_file(
 
 @router.post("/List", description="获取文件列表")
 def list_directory(directory: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
-    file_path = get_os_path(directory)
-    if not file_path.exists():
-        logger.error(f"list_directory fail: file not exists: {file_path}")
-        raise_not_found(directory)
-    if not file_path.is_dir():
-        logger.error(f"list_directory fail: not directory: {file_path}")
-        raise_bad_request(f"{directory} is not directory")
-
-    result = []
-    for fs_item in file_path.iterdir():
-        name = fs_item.name
-        last_modified = datetime.fromtimestamp(fs_item.stat().st_mtime)
-        if fs_item.is_dir():
-            result.append(FileSystemInfo(type=FileType.directory, name=name, last_modified=last_modified))
-        if fs_item.is_file():
-            result.append(
-                FileSystemInfo(type=FileType.file, name=name, last_modified=last_modified, size=fs_item.stat().st_size)
-            )
-    return result
+    return service.list_directory_by_path(directory, True)
 
 
 @router.post("/Rename", description="重命名文件")

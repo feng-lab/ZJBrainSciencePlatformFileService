@@ -1,9 +1,9 @@
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, model_validator
+from pydantic import AfterValidator, BaseModel
 
 
 def validate_absolute_url_path(path: str) -> str:
@@ -38,15 +38,6 @@ class FileSystemInfo(BaseModel):
     name: str
     last_modified: datetime
     size: int | None = None
-
-    @model_validator(mode="after")
-    def validate_type_and_size(self) -> Self:
-        match self.type:
-            case FileType.file:
-                assert self.size is not None, "file size must not be None"
-            case FileType.directory:
-                assert self.size is None, "directory size must be None"
-        return self
 
 
 def is_valid_filename(filename: str) -> bool:

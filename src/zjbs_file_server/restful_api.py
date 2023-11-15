@@ -7,24 +7,28 @@ from loguru import logger
 from starlette.background import BackgroundTask
 
 from zjbs_file_server import service
-from zjbs_file_server.types import CompressMethod, RelativeUrlPath
+from zjbs_file_server.types import CompressMethod, FileSystemInfo, RelativeUrlPath
 from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
 router = APIRouter(tags=["restful"])
 
 
-@router.get("/restful/{server_path:path}")
-async def download_file(
+@router.get("/restful/{server_path:path}", response_model=None)
+async def download_or_list_file(
     server_path: Annotated[RelativeUrlPath, Path(description="文件路径")],
     compress: Annotated[CompressMethod | None, Query(description="压缩方法，文件夹默认txz，文件默认不压缩")] = None,
     follow_symlinks: Annotated[bool, Query(description="是否跟随符号链接")] = True,
-) -> FileResponse:
+    list_: Annotated[bool, Query(description="列出文件夹，而非下载文件夹")] = False,
+) -> list[FileSystemInfo] | FileResponse:
     file_path = get_os_path(server_path)
     if not file_path.exists():
         logger.error(f"download_file fail: file not exists: {file_path}")
         raise_not_found(server_path)
     if follow_symlinks and file_path.is_symlink():
         file_path = file_path.resolve()
+
+    if list_ and file_path.is_dir():
+        return service.list_directory_by_path(server_path, follow_symlinks)
 
     if compress is None:
         if file_path.is_file():
@@ -37,8 +41,8 @@ async def download_file(
 
     compressed_file = service.compress(file_path, compress, follow_symlinks)
     return FileResponse(
-        compressed_file.name,
-        background=BackgroundTask(compressed_file.close),
+        compressed_file,
+        background=BackgroundTask(compressed_file.unlink, missing_ok=True),
         filename=f"{file_path.stem}.{compress.value}",
     )
 
