@@ -1,7 +1,6 @@
 import os
 import shutil
 import tarfile
-from pathlib import Path
 from typing import Annotated
 from zipfile import ZipFile
 
@@ -17,7 +16,7 @@ from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_foun
 router = APIRouter(tags=["file"])
 
 
-@router.post("/Upload", description="上传文件")
+@router.post("/upload-file", description="上传文件")
 def upload_file(
     directory: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     file: Annotated[UploadFile, File(description="上传的文件")],
@@ -27,12 +26,12 @@ def upload_file(
     return service.upload_file(directory, file.filename, file.file, mkdir, allow_overwrite)
 
 
-@router.post("/UploadDirectory", description="以压缩包上传文件夹")
+@router.post("/upload-directory", description="以压缩包上传文件夹")
 def upload_directory(
     parent_dir: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     compressed_dir: Annotated[UploadFile, File(description="上传的文件")],
     compress_method: Annotated[CompressMethod, Query(description="压缩方法")],
-    mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
+    mkdir: Annotated[bool, Query(description="是否创建目录")] = True,
     zip_metadata_encoding: Annotated[str, Query(description="zip文件元数据编码")] = "GB18030",
 ) -> None:
     destination_parent_dir = get_os_path(parent_dir)
@@ -57,12 +56,12 @@ def upload_directory(
     logger.info(f"upload_zip success: {destination_parent_dir}")
 
 
-@router.post("/DownloadFile", description="下载文件")
+@router.post("/download-file", description="下载文件")
 def download_file(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     return service.download_file(path)
 
 
-@router.post("/DownloadDirectory", description="下载文件夹")
+@router.post("/download-directory", description="下载文件夹")
 def download_directory(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     dir_path = get_os_path(path)
     if not dir_path.exists():
@@ -72,19 +71,15 @@ def download_directory(path: Annotated[AbsoluteUrlPath, Query(description="文�
         logger.error(f"download_file fail: not a file: {dir_path}")
         raise_bad_request(f"not a file: {path}")
 
-    compressed = compress_directory(dir_path)
+    compressed = dir_path.with_suffix(".tar.xz")
+    with tarfile.open(compressed, "w:xz") as tar_file:
+        tar_file.add(dir_path, arcname=dir_path.name)
+
     logger.info(f"download_directory success: {dir_path}")
     return FileResponse(compressed, filename=compressed.name, background=BackgroundTask(os.unlink, compressed))
 
 
-def compress_directory(dir_path: Path) -> Path:
-    compressed = dir_path.with_suffix(".tar.xz")
-    with tarfile.open(compressed, "w:xz") as tar_file:
-        tar_file.add(dir_path, arcname=dir_path.name)
-    return compressed
-
-
-@router.post("/Delete", description="删除文件")
+@router.post("/delete", description="删除文件")
 def delete_file(
     path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
     recursive: Annotated[bool, Query(description="是否递归删除")] = False,
@@ -112,12 +107,12 @@ def delete_file(
                 return False
 
 
-@router.post("/List", description="获取文件列表")
+@router.post("/list-directory", description="获取文件列表")
 def list_directory(directory: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
     return service.list_directory_by_path(directory, True)
 
 
-@router.post("/Rename", description="重命名文件")
+@router.post("/rename", description="重命名文件")
 def rename(
     path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
     new_name: Annotated[str, Query(description="新文件名")],
