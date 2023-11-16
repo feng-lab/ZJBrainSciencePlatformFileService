@@ -15,3 +15,5 @@ wheels/
 # tools cache
 .pytest_cache/
 .ruff_cache/
+
+.idea/

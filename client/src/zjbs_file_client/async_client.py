@@ -33,7 +33,7 @@ async def upload(
         params["allow_overwrite"] = allow_overwrite
     files = {"file": (filename, file, "application/octet-stream")}
 
-    response = await client.post("/Upload", files=files, params=params)
+    response = await client.post("/upload-file", files=files, params=params)
     response.raise_for_status()
 
 
@@ -62,12 +62,12 @@ async def upload_directory(
             params["zip_metadata_encoding"] = zip_metadata_encoding
         files = {"compressed_dir": (directory.name, tmp_compress_file, "application/octet-stream")}
 
-        response = await client.post("/UploadDirectory", files=files, params=params)
+        response = await client.post("/upload-directory", files=files, params=params)
         response.raise_for_status()
 
 
 async def download_file(path: str, target: IOBase | str | Path) -> None:
-    response = await client.post("/DownloadFile", params={"path": path})
+    response = await client.post("/download-file", params={"path": path})
     response.raise_for_status()
 
     target_writer = target
@@ -82,7 +82,7 @@ async def download_file(path: str, target: IOBase | str | Path) -> None:
 
 
 async def download_directory(path: str, target_parent_directory: str | Path) -> None:
-    response = await client.post("/DownloadDirectory", params={"path": path})
+    response = await client.post("/download-directory", params={"path": path})
     response.raise_for_status()
 
     target_parent_directory = Path(target_parent_directory)
@@ -103,18 +103,18 @@ async def delete(path: str, recursive: bool | None = None) -> bool:
     if recursive is not None:
         params["recursive"] = recursive
 
-    response = await client.post("/Delete", params=params)
+    response = await client.post("/delete", params=params)
     response.raise_for_status()
     return bool(response.text)
 
 
 async def list_directory(directory: str) -> list[FileSystemInfo]:
-    response = await client.post("/List", params={"directory": directory})
+    response = await client.post("/list-directory", params={"directory": directory})
     response.raise_for_status()
 
     return [FileSystemInfo(**info) for info in response.json()]
 
 
 async def rename(path: str, new_name: str) -> None:
-    response = await client.post("/Rename", params={"path": path, "new_name": new_name})
+    response = await client.post("/rename", params={"path": path, "new_name": new_name})
     response.raise_for_status()

@@ -1,4 +1,4 @@
-import re
+import uuid
 from pathlib import Path
 from typing import Never
 
@@ -21,18 +21,8 @@ def raise_internal_server_error(message: str) -> Never:
 
 
 def get_os_path(url_path: str, base_path: Path = settings.FILE_DIR) -> Path:
-    return base_path / url_path[1:]
+    return base_path / url_path.lstrip("/")
 
 
-def is_valid_filename(filename: str) -> bool:
-    return (
-        len(filename) <= 255
-        and not filename.endswith((".", " "))
-        and re.search(r"[/\\{}<>:\"\'|?*\x00\n]", filename) is None
-    )
-
-
-def validate_url_path(path: str) -> str:
-    assert path.startswith("/"), "url path must starts with '/'"
-    assert all(is_valid_filename(part) for part in path.split("/") if part), "url path contains invalid characters"
-    return path
+def new_temp_file() -> Path:
+    return settings.TEMP_DIR / str(uuid.uuid4())

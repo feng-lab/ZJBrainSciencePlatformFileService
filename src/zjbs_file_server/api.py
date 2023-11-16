@@ -1,95 +1,37 @@
 import os
 import shutil
 import tarfile
-from datetime import datetime
-from enum import StrEnum
-from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated
 from zipfile import ZipFile
 
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
-from pydantic import AfterValidator, BaseModel, model_validator
 from starlette.background import BackgroundTask
 
-from zjbs_file_server.settings import settings
-from zjbs_file_server.util import get_os_path, is_valid_filename, raise_bad_request, raise_not_found, validate_url_path
-
-UrlPath = Annotated[str, AfterValidator(validate_url_path)]
-
-
-class CompressMethod(StrEnum):
-    not_compressed = "not_compressed"
-    zip = "zip"
-    tgz = "tgz"
-    txz = "txz"
-
-
-class FileType(StrEnum):
-    file = "file"
-    directory = "directory"
-
-
-class FileSystemInfo(BaseModel):
-    type: FileType
-    name: str
-    last_modified: datetime
-    size: int | None = None
-
-    @model_validator(mode="after")
-    def validate_type_and_size(self) -> Self:
-        match self.type:
-            case FileType.file:
-                assert self.size is not None, "file size must not be None"
-            case FileType.directory:
-                assert self.size is None, "directory size must be None"
-        return self
-
+from zjbs_file_server import service
+from zjbs_file_server.types import AbsoluteUrlPath, CompressMethod, FileSystemInfo, is_valid_filename
+from zjbs_file_server.util import get_os_path, raise_bad_request, raise_not_found
 
 router = APIRouter(tags=["file"])
 
 
-@router.post("/Upload", description="上传文件")
+@router.post("/upload-file", description="上传文件")
 def upload_file(
-    directory: Annotated[UrlPath, Query(description="目标文件夹")],
+    directory: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     file: Annotated[UploadFile, File(description="上传的文件")],
     mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
     allow_overwrite: Annotated[bool, Query(description="是否允许覆盖已有文件")] = False,
 ) -> None:
-    if not is_valid_filename(file.filename):
-        logger.error(f"upload_file fail: invalid filename: {file.filename}")
-        raise_bad_request(f"invalid filename: {file.filename}")
-
-    destination_folder = get_os_path(directory)
-    if not destination_folder.exists():
-        if mkdir:
-            destination_folder.mkdir(parents=True)
-        else:
-            logger.error(f"upload_file fail: directory not exists: {destination_folder}")
-            raise_bad_request(f"directory {directory} not exists")
-
-    destination_path = destination_folder / file.filename
-    if destination_path.exists() and not allow_overwrite:
-        logger.error(f"upload_file fail: file already exists: {destination_path}")
-        raise_bad_request(f"file {directory}/{file.filename} already exists")
-
-    try:
-        with open(destination_path, "wb") as destination_file:
-            while chunk := file.file.read(settings.BUFFER_SIZE):
-                destination_file.write(chunk)
-        logger.info(f"upload_file success: {destination_path}")
-    except IOError:
-        logger.exception(f"upload_file fail: io error: {destination_path}")
-        raise
+    return service.upload_file(directory, file.filename, file.file, mkdir, allow_overwrite)
 
 
-@router.post("/UploadDirectory", description="以压缩包上传文件夹")
+@router.post("/upload-directory", description="以压缩包上传文件夹")
 def upload_directory(
-    parent_dir: Annotated[UrlPath, Query(description="目标文件夹")],
+    parent_dir: Annotated[AbsoluteUrlPath, Query(description="目标文件夹")],
     compressed_dir: Annotated[UploadFile, File(description="上传的文件")],
     compress_method: Annotated[CompressMethod, Query(description="压缩方法")],
-    mkdir: Annotated[bool, Query(description="是否创建目录")] = False,
+    mkdir: Annotated[bool, Query(description="是否创建目录")] = True,
     zip_metadata_encoding: Annotated[str, Query(description="zip文件元数据编码")] = "GB18030",
 ) -> None:
     destination_parent_dir = get_os_path(parent_dir)
@@ -114,22 +56,13 @@ def upload_directory(
     logger.info(f"upload_zip success: {destination_parent_dir}")
 
 
-@router.post("/DownloadFile", description="下载文件")
-def download_file(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
-    file_path = get_os_path(path)
-    if not file_path.exists():
-        logger.error(f"download_file fail: file not exists: {file_path}")
-        raise_not_found(path)
-    if not file_path.is_file():
-        logger.error(f"download_file fail: not a file: {file_path}")
-        raise_bad_request(f"not a file: {path}")
-
-    logger.info(f"download_file success: {file_path}")
-    return FileResponse(file_path, filename=file_path.name)
+@router.post("/download-file", description="下载文件")
+def download_file(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
+    return service.download_file(path)
 
 
-@router.post("/DownloadDirectory", description="下载文件夹")
-def download_directory(path: Annotated[UrlPath, Query(description="文件路径")]) -> FileResponse:
+@router.post("/download-directory", description="下载文件夹")
+def download_directory(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     dir_path = get_os_path(path)
     if not dir_path.exists():
         logger.error(f"download_directory fail: file not exists: {dir_path}")
@@ -138,21 +71,17 @@ def download_directory(path: Annotated[UrlPath, Query(description="文件路径"
         logger.error(f"download_file fail: not a file: {dir_path}")
         raise_bad_request(f"not a file: {path}")
 
-    compressed = compress_directory(dir_path)
+    compressed = dir_path.with_suffix(".tar.xz")
+    with tarfile.open(compressed, "w:xz") as tar_file:
+        tar_file.add(dir_path, arcname=dir_path.name)
+
     logger.info(f"download_directory success: {dir_path}")
     return FileResponse(compressed, filename=compressed.name, background=BackgroundTask(os.unlink, compressed))
 
 
-def compress_directory(dir_path: Path) -> Path:
-    compressed = dir_path.with_suffix(".tar.xz")
-    with tarfile.open(compressed, "w:xz") as tar_file:
-        tar_file.add(dir_path, arcname=dir_path.name)
-    return compressed
-
-
-@router.post("/Delete", description="删除文件")
+@router.post("/delete", description="删除文件")
 def delete_file(
-    path: Annotated[UrlPath, Query(description="文件路径")],
+    path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
     recursive: Annotated[bool, Query(description="是否递归删除")] = False,
 ) -> bool:
     file_path = get_os_path(path)
@@ -178,32 +107,15 @@ def delete_file(
                 return False
 
 
-@router.post("/List", description="获取文件列表")
-def list_directory(directory: Annotated[UrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
-    file_path = get_os_path(directory)
-    if not file_path.exists():
-        logger.error(f"list_directory fail: file not exists: {file_path}")
-        raise_not_found(directory)
-    if not file_path.is_dir():
-        logger.error(f"list_directory fail: not directory: {file_path}")
-        raise_bad_request(f"{directory} is not directory")
-
-    result = []
-    for fs_item in file_path.iterdir():
-        name = fs_item.name
-        last_modified = datetime.fromtimestamp(fs_item.stat().st_mtime)
-        if fs_item.is_dir():
-            result.append(FileSystemInfo(type=FileType.directory, name=name, last_modified=last_modified))
-        if fs_item.is_file():
-            result.append(
-                FileSystemInfo(type=FileType.file, name=name, last_modified=last_modified, size=fs_item.stat().st_size)
-            )
-    return result
+@router.post("/list-directory", description="获取文件列表")
+def list_directory(directory: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> list[FileSystemInfo]:
+    return service.list_directory_by_path(directory, True)
 
 
-@router.post("/Rename", description="重命名文件")
+@router.post("/rename", description="重命名文件")
 def rename(
-    path: Annotated[UrlPath, Query(description="文件路径")], new_name: Annotated[str, Query(description="新文件名")]
+    path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
+    new_name: Annotated[str, Query(description="新文件名")],
 ) -> None:
     file_path = get_os_path(path)
     if not file_path.exists():
