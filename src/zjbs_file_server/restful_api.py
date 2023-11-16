@@ -18,7 +18,7 @@ async def download_or_list_file(
     server_path: Annotated[RelativeUrlPath, Path(description="文件路径")],
     compress: Annotated[CompressMethod | None, Query(description="压缩方法，文件夹默认txz，文件默认不压缩")] = None,
     follow_symlinks: Annotated[bool, Query(description="是否跟随符号链接")] = True,
-    list_: Annotated[bool, Query(description="列出文件夹，而非下载文件夹")] = False,
+    list_: Annotated[bool, Query(alias="list", description="列出文件夹，而非下载文件夹")] = False,
 ) -> list[FileSystemInfo] | FileResponse:
     file_path = get_os_path(server_path)
     if not file_path.exists():
