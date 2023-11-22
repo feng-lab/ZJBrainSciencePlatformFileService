@@ -1,8 +1,10 @@
 import os
+import shutil
 import tarfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 from zipfile import ZipFile
 
@@ -90,15 +92,23 @@ def upload_file(
         logger.error(f"upload_file fail: file already exists: {target_path}")
         raise_bad_request(f"file {target_url_directory}/{target_filename} already exists")
 
-    # 写入文件
+    # 写入临时文件，然后替换为目标文件
+    tmp_path = None
     try:
-        with open(target_path, "wb") as destination_file:
-            while chunk := reader.read(64 * 1024):
-                destination_file.write(chunk)
+        with NamedTemporaryFile(delete=False, dir=target_directory_path, prefix=target_filename) as tmp_file:
+            tmp_path = tmp_file.name
+            shutil.copyfileobj(reader, tmp_file)
+        os.replace(tmp_path, target_path)
         logger.info(f"upload_file success: {target_path}")
-    except IOError:
-        logger.exception(f"upload_file fail: io error: {target_path}")
+    except (IOError, OSError):
+        logger.exception(f"upload_file fail: system error: {target_path}")
         raise
+    finally:
+        try:
+            if tmp_path is not None and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            logger.exception(f"upload_file: remove temp file error: {tmp_path}")
 
 
 def list_directory_by_path(path: AbsoluteUrlPath | RelativeUrlPath, follow_symlinks: bool) -> list[FileSystemInfo]:
