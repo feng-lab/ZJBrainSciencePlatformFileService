@@ -1,0 +1,21 @@
+{
+  "cwd": "..",
+  "dockerfile": "./Dockerfile",
+  "repo": "zjbs-file-server",
+  "versions": [
+    "latest",
+    "%Y%m%d-%H%M%S-{git_hash:8}"
+  ],
+  "registries": [
+    {
+      "name": "docker-hub",
+      "registry": "default",
+      "user": "cnife"
+    },
+    {
+      "name": "215-server",
+      "registry": "10.11.140.35:5000",
+      "user": null
+    }
+  ]
+}
