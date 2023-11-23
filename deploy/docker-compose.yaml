@@ -3,7 +3,7 @@ name: zjbs-file-server
 
 services:
   file-server:
-    image: cnife/zjbs-file-server:${IMAGE_VERSION:-latest}
+    image: ${IMAGE_TAG}
     ports:
       - "${PORT:-3000}:80"
     environment:

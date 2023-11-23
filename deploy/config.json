@@ -1,0 +1,39 @@
+{
+  "image": {
+    "repo": "zjbs-file-server"
+  },
+  "build": {
+    "context": "..",
+    "dockerfile": "./Dockerfile",
+    "versions": [
+      "latest",
+      "%Y%m%d-%H%M%S-{git_hash:8}"
+    ]
+  },
+  "registries": {
+    "docker-hub": {
+      "registry": null,
+      "user": "cnife"
+    },
+    "215-server": {
+      "registry": "10.11.140.35:5000",
+      "user": null
+    }
+  },
+  "deploy": {
+    "common": {
+      "user": "cnife",
+      "identity": "zjlab-server",
+      "file": "/data/ZJBrainSciencePlatform/compose/file-server.compose.yaml",
+      "PORT": "3000",
+      "FILE_DIR": "/data/ZJBrainSciencePlatform/file-server/file",
+      "LOG_DIR": "/data/ZJBrainSciencePlatform/file-server/log"
+    },
+    "testing": {
+      "host": "10.101.40.3"
+    },
+    "production": {
+      "host": "10.11.140.35"
+    }
+  }
+}
