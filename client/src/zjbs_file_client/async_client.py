@@ -81,7 +81,7 @@ async def download_file(path: str, target: IOBase | str | Path) -> None:
             target_writer.close()
 
 
-async def download_directory(path: str, target_parent_directory: str | Path) -> None:
+async def download_directory(path: str, target_parent_directory: str | Path) -> Path:
     response = await client.post("/download-directory", params={"path": path})
     response.raise_for_status()
 
@@ -94,6 +94,7 @@ async def download_directory(path: str, target_parent_directory: str | Path) -> 
                 tar_file.write(chunk)
         with tarfile.open(tar_file_path, "r:xz") as tar_file:
             tar_file.extractall(target_parent_directory)
+        return target_parent_directory / path.rstrip("/").rsplit("/", 1)[1]
     finally:
         tar_file_path.unlink(missing_ok=True)
 
