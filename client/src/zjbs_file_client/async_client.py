@@ -23,6 +23,12 @@ async def close_client() -> None:
         client = None
 
 
+def get_client() -> AsyncClient:
+    if client is None:
+        raise RuntimeError("client is not initialized")
+    return client
+
+
 async def upload(
     directory: str, file: IOBase, filename: str, mkdir: bool | None = None, allow_overwrite: bool | None = None
 ) -> None:
