@@ -1,36 +1,10 @@
-import asyncio
 import shutil
 from pathlib import Path
 from tempfile import SpooledTemporaryFile, TemporaryDirectory
 
 import pytest
-from fastapi.testclient import TestClient
 
-from zjbs_file_client import close_client, init_client
-from zjbs_file_server.main import app
 from zjbs_file_server.util import get_os_path
-
-
-@pytest.fixture(scope="session", autouse=True)
-async def init() -> None:
-    await init_client(base_url="http://testserver", app=app, timeout=None)
-    yield
-    await close_client()
-
-
-@pytest.fixture()
-def client() -> TestClient:
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture(scope="session", autouse=True)
-def event_loop() -> asyncio.AbstractEventLoop:
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    loop.set_debug(True)
-    yield loop
-    loop.close()
 
 
 @pytest.fixture()

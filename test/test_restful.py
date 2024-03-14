@@ -4,7 +4,14 @@ from tempfile import SpooledTemporaryFile
 import pytest
 from fastapi.testclient import TestClient
 
+from zjbs_file_server.main import app
 from zjbs_file_server.util import get_os_path
+
+
+@pytest.fixture(scope="module")
+def client() -> TestClient:
+    with TestClient(app) as client:
+        yield client
 
 
 def test_restful_upload(client: TestClient, temp_file: SpooledTemporaryFile) -> None:
