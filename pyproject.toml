@@ -40,6 +40,9 @@ workspace = { members = ["client"] }
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/zjbs_file_server"]
+
 [tool.ruff]
 src = ["src", "test", "client/src"]
 exclude = [
