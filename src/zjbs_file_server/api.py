@@ -56,6 +56,24 @@ def upload_directory(
     logger.info(f"upload_zip success: {destination_parent_dir}")
 
 
+@router.post("/create-directory", description="创建文件夹")
+def create_directory(
+    path: Annotated[AbsoluteUrlPath, Query(description="文件夹路径")],
+    exists_ok: Annotated[bool, Query(description="是否允许已存在")] = True,
+) -> bool:
+    dir_path = get_os_path(path)
+    if dir_path.exists():
+        if not dir_path.is_dir():
+            logger.error(f"create_directory fail: not a directory: {dir_path}")
+            raise_bad_request(f"not a directory: {path}")
+        if not exists_ok:
+            logger.error(f"create_directory fail: directory exists: {dir_path}")
+            raise_bad_request(f"directory exists: {path}")
+    dir_path.mkdir(parents=True, exist_ok=True)
+    logger.info(f"create_directory success: {dir_path}")
+    return True
+
+
 @router.post("/download-file", description="下载文件")
 def download_file(path: Annotated[AbsoluteUrlPath, Query(description="文件路径")]) -> FileResponse:
     return service.download_file(path)
@@ -79,8 +97,8 @@ def download_directory(path: Annotated[AbsoluteUrlPath, Query(description="文�
     return FileResponse(compressed, filename=compressed.name, background=BackgroundTask(os.unlink, compressed))
 
 
-@router.post("/delete", description="删除文件")
-def delete_file(
+@router.post("/delete", description="删除文件或文件夹")
+def delete(
     path: Annotated[AbsoluteUrlPath, Query(description="文件路径")],
     recursive: Annotated[bool, Query(description="是否递归删除")] = False,
 ) -> bool:

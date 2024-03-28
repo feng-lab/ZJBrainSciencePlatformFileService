@@ -52,6 +52,13 @@ def _prepare_upload_directory(
         yield files, params
 
 
+def _prepare_create_directory(path: str, exists_ok: bool | None) -> QueryParamTypes:
+    params = {"path": path}
+    if exists_ok is not None:
+        params["exists_ok"] = exists_ok
+    return params
+
+
 def _finish_download(response: Response, target: IOBase | str | Path) -> None:
     target_writer = target
     try:
@@ -128,6 +135,11 @@ class AsyncClient:
             response = await self.inner.post("/upload-directory", files=files, params=params)
             response.raise_for_status()
 
+    async def create_directory(self, path: str, exists_ok: bool | None = None) -> bool:
+        response = await self.inner.post("/create-directory", params=_prepare_create_directory(path, exists_ok))
+        response.raise_for_status()
+        return bool(response.text)
+
     async def download_file(self, path: str, target: IOBase | str | Path) -> None:
         response = await self.inner.post("/download-file", params={"path": path})
         response.raise_for_status()
@@ -191,6 +203,11 @@ class Client:
         ):
             response = self.inner.post("/upload-directory", files=files, params=params)
             response.raise_for_status()
+
+    def create_directory(self, path: str, exists_ok: bool | None = None) -> bool:
+        response = self.inner.post("/create-directory", params=_prepare_create_directory(path, exists_ok))
+        response.raise_for_status()
+        return bool(response.text)
 
     def download_file(self, path: str, target: IOBase | str | Path) -> None:
         response = self.inner.post("/download-file", params={"path": path})
